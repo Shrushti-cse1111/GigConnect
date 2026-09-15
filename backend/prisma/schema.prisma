@@ -1,0 +1,704 @@
+// GigConnect Pan-India Cooperative Gig Services Platform Schema
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// 1. User & Authentication
+// -------------------------------------------------------------
+enum Role {
+  SERVICE_SEEKER
+  WORKER
+  FEDERATION_ADMIN
+  SUPER_ADMIN
+}
+
+enum WorkerStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  NEEDS_REVIEW
+  SUSPENDED
+}
+
+enum VerificationTier {
+  UNVERIFIED
+  BASIC
+  COOPERATIVE_CERTIFIED
+  MASTER_CRAFTSMAN
+}
+
+model User {
+  id                String       @id @default(uuid())
+  phone             String       @unique
+  name              String
+  email             String?
+  passwordHash      String
+  role              Role         @default(SERVICE_SEEKER)
+  profileImage      String?
+  language          String       @default("en")
+  city              String?      @default("Pune")
+  state             String?      @default("Maharashtra")
+  pincode           String?
+  isActive          Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  // Relationships
+  workerProfile     WorkerProfile?
+  seekerBookings    Booking[]         @relation("CustomerBookings")
+  reviewsGiven      Review[]          @relation("CustomerReviews")
+  grievancesFiled   Grievance[]       @relation("UserGrievances")
+  grievanceComments GrievanceComment[]
+  votes             Vote[]
+  notifications     Notification[]
+  devices           Device[]
+  sentMessages      Message[]         @relation("SentMessages")
+  customerConversations Conversation[] @relation("CustomerConversations")
+  favorites         Favorite[]
+  referralsMade     Referral[]        @relation("Referrer")
+  referralsReceived Referral[]        @relation("ReferredUser")
+  supportTickets    SupportTicket[]
+  safetyIncidents   SafetyIncident[]
+  auditLogs         AuditLog[]
+}
+
+model Device {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token       String   @unique
+  platform    String   @default("ANDROID") // ANDROID, IOS, WEB
+  lastActive  DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// 2. Cooperative Federation Hierarchy & Locations
+// -------------------------------------------------------------
+model Cooperative {
+  id              String           @id @default(uuid())
+  name            String
+  code            String           @unique
+  state           String
+  description     String?
+  createdAt       DateTime         @default(now())
+  stateFederations StateFederation[]
+}
+
+model StateFederation {
+  id            String          @id @default(uuid())
+  name          String
+  cooperativeId String
+  cooperative   Cooperative     @relation(fields: [cooperativeId], references: [id])
+  districts     DistrictRegion[]
+}
+
+model DistrictRegion {
+  id                String          @id @default(uuid())
+  name              String
+  stateFederationId String
+  stateFederation   StateFederation @relation(fields: [stateFederationId], references: [id])
+  workerSocieties   WorkerSociety[]
+  cities            CityArea[]
+}
+
+model WorkerSociety {
+  id               String          @id @default(uuid())
+  name             String
+  code             String          @unique
+  districtRegionId String
+  districtRegion   DistrictRegion  @relation(fields: [districtRegionId], references: [id])
+  workers          WorkerProfile[]
+}
+
+model StateLocation {
+  id        String       @id @default(uuid())
+  name      String       @unique
+  code      String       @unique
+  districts DistrictLocation[]
+}
+
+model DistrictLocation {
+  id        String       @id @default(uuid())
+  name      String
+  stateId   String
+  state     StateLocation @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  cities    CityArea[]
+}
+
+model CityArea {
+  id          String           @id @default(uuid())
+  name        String
+  districtId  String
+  district    DistrictLocation @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  districtReg DistrictRegion?  @relation(fields: [districtRegId], references: [id])
+  districtRegId String?
+  latitude    Float
+  longitude   Float
+  localities  Locality[]
+}
+
+model Locality {
+  id          String   @id @default(uuid())
+  name        String
+  cityId      String
+  city        CityArea @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  pincode     String
+  latitude    Float
+  longitude   Float
+}
+
+// -------------------------------------------------------------
+// 3. Worker Profile, Skills & Availability
+// -------------------------------------------------------------
+model WorkerProfile {
+  id                   String            @id @default(uuid())
+  userId               String            @unique
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status               WorkerStatus      @default(PENDING)
+  verificationTier     VerificationTier  @default(BASIC)
+  
+  // Verification Checks
+  identityVerified     Boolean           @default(false)
+  skillVerified        Boolean           @default(false)
+  cooperativeVerified  Boolean           @default(false)
+  communityVerified    Boolean           @default(false)
+
+  // Experience & Location
+  experienceYears      Int               @default(2)
+  serviceRadiusKm      Float             @default(15.0)
+  latitude             Float             @default(18.5204)
+  longitude            Float             @default(73.8567)
+  address              String?
+  city                 String            @default("Pune")
+  state                String            @default("Maharashtra")
+  pincode              String?
+  languages            String            @default("Hindi,Marathi,English") // Comma-separated
+
+  // Cooperative membership
+  societyId            String?
+  society              WorkerSociety?    @relation(fields: [societyId], references: [id])
+
+  // Performance & Stats
+  rating               Float             @default(5.0)
+  reviewCount          Int               @default(0)
+  completedJobs        Int               @default(0)
+  weeklyEarnings       Float             @default(0.0)
+  currentActiveJobs    Int               @default(0)
+  fairnessRotationScore Float            @default(1.0) // Lower active jobs => higher priority
+
+  // Real-time Availability
+  isAvailable          Boolean           @default(true)
+  availabilityStatus   String            @default("AVAILABLE") // AVAILABLE, BUSY, OFFLINE
+
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  // Relationships
+  skills               WorkerSkill[]
+  availabilitySlots    WorkerSlot[]
+  assignedBookings     Booking[]         @relation("WorkerBookings")
+  reviewsReceived      Review[]          @relation("WorkerReviews")
+  welfareProfile       WelfareProfile?
+  equityWallet         EquityWallet?
+  passport             WorkerPassport?
+  safetyCheckIns       SafetyCheckIn[]
+  emergencyContacts    EmergencyContact[]
+  workerConversations  Conversation[]    @relation("WorkerConversations")
+  skillProgressList    SkillProgress[]
+}
+
+model WorkerSkill {
+  id              String        @id @default(uuid())
+  workerProfileId String
+  workerProfile   WorkerProfile @relation(fields: [workerProfileId], references: [id], onDelete: Cascade)
+  serviceId       String
+  service         Service       @relation(fields: [serviceId], references: [id])
+  experienceYears Int           @default(1)
+  isPrimary       Boolean       @default(false)
+  hourlyRate      Float         @default(299.0)
+}
+
+model WorkerSlot {
+  id              String        @id @default(uuid())
+  workerProfileId String
+  workerProfile   WorkerProfile @relation(fields: [workerProfileId], references: [id], onDelete: Cascade)
+  dayOfWeek       Int           // 0 = Sunday, 1 = Monday, etc.
+  startTime       String        // e.g. "09:00"
+  endTime         String        // e.g. "18:00"
+  isBooked        Boolean       @default(false)
+}
+
+// -------------------------------------------------------------
+// 4. Services & Categories
+// -------------------------------------------------------------
+model ServiceCategory {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  code        String    @unique // e.g. "plumbing", "electrical"
+  description String?
+  icon        String?
+  services    Service[]
+}
+
+model Service {
+  id          String          @id @default(uuid())
+  categoryId  String
+  category    ServiceCategory @relation(fields: [categoryId], references: [id])
+  name        String
+  code        String          @unique
+  description String?
+  basePrice   Float           @default(399.0)
+  durationMin Int             @default(60)
+  icon        String?
+  workers     WorkerSkill[]
+  bookings    Booking[]
+  demandStats DemandForecast[]
+}
+
+// -------------------------------------------------------------
+// 5. Booking, Slot-Locking & State Machine
+// -------------------------------------------------------------
+enum BookingType {
+  INSTANT
+  SCHEDULED
+  EMERGENCY
+}
+
+enum BookingStatus {
+  PENDING
+  MATCHING
+  CONFIRMED
+  WORKER_ASSIGNED
+  WORKER_ON_WAY
+  SERVICE_STARTED
+  SERVICE_COMPLETED
+  PAYMENT_PENDING
+  PAID
+  CANCELLED
+  DISPUTED
+  REFUNDED
+}
+
+model Booking {
+  id              String         @id @default(uuid())
+  customerId      String
+  customer        User           @relation("CustomerBookings", fields: [customerId], references: [id])
+  workerId        String?
+  worker          WorkerProfile? @relation("WorkerBookings", fields: [workerId], references: [id])
+  serviceId       String
+  service         Service        @relation(fields: [serviceId], references: [id])
+  
+  bookingType     BookingType    @default(SCHEDULED)
+  status          BookingStatus  @default(PENDING)
+  
+  scheduledDate   String         // YYYY-MM-DD
+  startTime       String         // HH:mm
+  endTime         String         // HH:mm
+  address         String
+  city            String         @default("Pune")
+  latitude        Float
+  longitude       Float
+  instructions    String?
+  
+  // Financial Breakdown (Backend Authoritative)
+  basePrice            Float
+  surgeAmount          Float     @default(0.0)
+  surgeReason          String?
+  totalAmount          Float
+  workerEarnings       Float
+  platformContribution Float
+  welfareContribution  Float
+  equityContribution   Float
+
+  // Slot Lock Expiry (5-min reservation)
+  slotLockExpiresAt    DateTime?
+  idempotencyKey       String?   @unique
+
+  // Cancellation
+  cancelledBy          String?
+  cancellationReason   String?
+  cancelledAt          DateTime?
+
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  events               BookingEvent[]
+  payment              Payment?
+  review               Review?
+  grievances           Grievance[]
+  conversation         Conversation?
+  ledgerTxns           FinancialTransaction[]
+}
+
+model BookingEvent {
+  id          String        @id @default(uuid())
+  bookingId   String
+  booking     Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  fromStatus  BookingStatus?
+  toStatus    BookingStatus
+  note        String?
+  actorId     String?
+  createdAt   DateTime      @default(now())
+}
+
+// -------------------------------------------------------------
+// 6. Transparent Payments & Immutable Financial Ledger
+// -------------------------------------------------------------
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  UPI
+  CARD
+  WALLET
+  CASH
+}
+
+model Payment {
+  id                     String        @id @default(uuid())
+  bookingId              String        @unique
+  booking                Booking       @relation(fields: [bookingId], references: [id])
+  amount                 Float
+  currency               String        @default("INR")
+  status                 PaymentStatus @default(PENDING)
+  method                 PaymentMethod @default(UPI)
+  provider               String        @default("MOCK_PAYMENT_GATEWAY")
+  providerTransactionId  String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+}
+
+model FinancialTransaction {
+  id             String   @id @default(uuid())
+  bookingId      String
+  booking        Booking  @relation(fields: [bookingId], references: [id])
+  type           String   // WORKER_EARNING, WELFARE_CONTRIBUTION, EQUITY_WALLET, PLATFORM_OPS
+  amount         Float
+  currency       String   @default("INR")
+  description    String
+  createdAt      DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// 7. Equity Wallet & Welfare Profiles
+// -------------------------------------------------------------
+model EquityWallet {
+  id                  String              @id @default(uuid())
+  workerProfileId     String              @unique
+  workerProfile       WorkerProfile       @relation(fields: [workerProfileId], references: [id], onDelete: Cascade)
+  equityPoints        Float               @default(150.0)
+  estimatedValuation  Float               @default(1500.0) // Valuation in INR (Demo safe)
+  cashBalance         Float               @default(0.0)
+  withdrawableBalance Float               @default(0.0)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  transactions        EquityTransaction[]
+}
+
+model EquityTransaction {
+  id             String       @id @default(uuid())
+  equityWalletId String
+  equityWallet   EquityWallet @relation(fields: [equityWalletId], references: [id], onDelete: Cascade)
+  pointsChange   Float
+  inrValue       Float
+  sourceJobId    String?
+  notes          String
+  createdAt      DateTime     @default(now())
+}
+
+model WelfareProfile {
+  id                   String        @id @default(uuid())
+  workerProfileId      String        @unique
+  workerProfile        WorkerProfile @relation(fields: [workerProfileId], references: [id], onDelete: Cascade)
+  insuranceStatus      String        @default("ACTIVE") // ACTIVE, PENDING, INACTIVE
+  insurancePolicyNo    String?       @default("GC-INSP-2026-883")
+  pensionStatus        String        @default("ENROLLED")
+  pensionScheme        String        @default("Pradhan Mantri Shram Yogi Maan-dhan")
+  savingsStatus        String        @default("ACTIVE")
+  trainingStatus       String        @default("IN_PROGRESS")
+  enrollmentPercentage Int           @default(85)
+  totalWelfareAccrued  Float         @default(450.0)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+}
+
+// -------------------------------------------------------------
+// 8. Skill-Up AI, Training & Demand Intelligence
+// -------------------------------------------------------------
+model SkillModule {
+  id                  String          @id @default(uuid())
+  title               String
+  category            String          // Plumbing, Electrical, Safety, etc.
+  description         String
+  durationHours       Int             @default(5)
+  xpReward            Int             @default(100)
+  progressList        SkillProgress[]
+}
+
+model SkillProgress {
+  id             String        @id @default(uuid())
+  workerId       String
+  worker         WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  moduleId       String
+  module         SkillModule   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progressPct    Int           @default(0)
+  isCompleted    Boolean       @default(false)
+  completedAt    DateTime?
+}
+
+model DemandForecast {
+  id             String   @id @default(uuid())
+  serviceId      String
+  service        Service  @relation(fields: [serviceId], references: [id])
+  city           String
+  state          String
+  demandLevel    String   // HIGH, MEDIUM, LOW
+  growthPct      Float    @default(25.0)
+  recommendedWorkerCount Int @default(50)
+  date           String
+  isDemo         Boolean  @default(true)
+}
+
+// -------------------------------------------------------------
+// 9. Digital Panchayat (Grievances) & Democratic Governance
+// -------------------------------------------------------------
+enum GrievanceStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+  ESCALATED
+}
+
+model Grievance {
+  id             String                 @id @default(uuid())
+  ticketNo       String                 @unique
+  userId         String
+  user           User                   @relation("UserGrievances", fields: [userId], references: [id])
+  bookingId      String?
+  booking        Booking?               @relation(fields: [bookingId], references: [id])
+  title          String
+  description    String
+  category       String                 @default("PAYMENT_DISPUTE") // PAYMENT, BEHAVIOR, QUALITY, SAFETY
+  status         GrievanceStatus        @default(OPEN)
+  resolution     String?
+  resolvedAt     DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  comments       GrievanceComment[]
+  statusHistory  GrievanceStatusAudit[]
+}
+
+model GrievanceComment {
+  id          String    @id @default(uuid())
+  grievanceId String
+  grievance   Grievance @relation(fields: [grievanceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  comment     String
+  createdAt   DateTime  @default(now())
+}
+
+model GrievanceStatusAudit {
+  id          String          @id @default(uuid())
+  grievanceId String
+  grievance   Grievance       @relation(fields: [grievanceId], references: [id], onDelete: Cascade)
+  fromStatus  GrievanceStatus
+  toStatus    GrievanceStatus
+  changedBy   String
+  reason      String?
+  createdAt   DateTime        @default(now())
+}
+
+model Proposal {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  category    String   // WELFARE_FUND, PLATFORM_RULES, SKILL_BUDGET
+  startDate   DateTime @default(now())
+  endDate     DateTime
+  status      String   @default("ACTIVE") // ACTIVE, PASSED, REJECTED
+  votesFor    Int      @default(0)
+  votesAgainst Int     @default(0)
+  votes       Vote[]
+}
+
+model Vote {
+  id         String   @id @default(uuid())
+  proposalId String
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  choice     String   // APPROVE, REJECT
+  createdAt  DateTime @default(now())
+
+  @@unique([proposalId, userId]) // 1 member = 1 vote
+}
+
+// -------------------------------------------------------------
+// 10. Worker Passport & Community Verification
+// -------------------------------------------------------------
+model WorkerPassport {
+  id                 String        @id @default(uuid())
+  workerProfileId    String        @unique
+  workerProfile      WorkerProfile @relation(fields: [workerProfileId], references: [id], onDelete: Cascade)
+  passportQrHash     String        @unique // Public verifiable SHA-256 hash
+  nationalCoopCertNo String        @default("COOP-NAT-2026-00492")
+  issuedAt           DateTime      @default(now())
+  validUntil         DateTime
+  skillsSummary      String
+  verifications      CommunityVerification[]
+}
+
+model CommunityVerification {
+  id               String         @id @default(uuid())
+  workerPassportId String
+  workerPassport   WorkerPassport @relation(fields: [workerPassportId], references: [id], onDelete: Cascade)
+  verifierName     String
+  verifierRole     String         // SOCIETY_PRESIDENT, PEER_WORKER, CUSTOMER_GUILD
+  verificationType String         // SKILL, ETHICS, IDENTITY
+  comments         String
+  verifiedAt       DateTime       @default(now())
+}
+
+// -------------------------------------------------------------
+// 11. Safety & SOS Incidents
+// -------------------------------------------------------------
+model SafetyIncident {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  bookingId   String?
+  latitude    Float
+  longitude   Float
+  status      String   @default("OPEN") // OPEN, ESCALATED, RESOLVED
+  severity    String   @default("CRITICAL")
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model SafetyCheckIn {
+  id              String        @id @default(uuid())
+  workerProfileId String
+  workerProfile   WorkerProfile @relation(fields: [workerProfileId], references: [id], onDelete: Cascade)
+  latitude        Float
+  longitude       Float
+  status          String        @default("SAFE")
+  createdAt       DateTime      @default(now())
+}
+
+model EmergencyContact {
+  id              String        @id @default(uuid())
+  workerProfileId String
+  workerProfile   WorkerProfile @relation(fields: [workerProfileId], references: [id], onDelete: Cascade)
+  name            String
+  phone           String
+  relationship    String
+}
+
+// -------------------------------------------------------------
+// 12. Reviews, Messaging, Favorites & Notifications
+// -------------------------------------------------------------
+model Review {
+  id         String        @id @default(uuid())
+  bookingId  String        @unique
+  booking    Booking       @relation(fields: [bookingId], references: [id])
+  workerId   String
+  worker     WorkerProfile @relation("WorkerReviews", fields: [workerId], references: [id])
+  customerId String
+  customer   User          @relation("CustomerReviews", fields: [customerId], references: [id])
+  rating     Float         @default(5.0)
+  comment    String?
+  createdAt  DateTime      @default(now())
+}
+
+model Conversation {
+  id          String    @id @default(uuid())
+  bookingId   String?   @unique
+  booking     Booking?  @relation(fields: [bookingId], references: [id])
+  customerId  String
+  customer    User      @relation("CustomerConversations", fields: [customerId], references: [id])
+  workerId    String
+  worker      WorkerProfile @relation("WorkerConversations", fields: [workerId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  messages    Message[]
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id])
+  content        String
+  messageType    String       @default("TEXT") // TEXT, IMAGE, SYSTEM
+  createdAt      DateTime     @default(now())
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workerId  String?
+  serviceId String?
+  createdAt DateTime @default(now())
+}
+
+model Referral {
+  id             String   @id @default(uuid())
+  referrerId     String
+  referrer       User     @relation("Referrer", fields: [referrerId], references: [id])
+  referredUserId String   @unique
+  referredUser   User     @relation("ReferredUser", fields: [referredUserId], references: [id])
+  rewardAmount   Float    @default(50.0)
+  status         String   @default("COMPLETED")
+  createdAt      DateTime @default(now())
+}
+
+model SupportTicket {
+  id          String   @id @default(uuid())
+  ticketNo    String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  category    String
+  subject     String
+  description String
+  status      String   @default("OPEN")
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  type      String   // BOOKING, WELFARE, VOTING, PAYMENT, SAFETY
+  dataJson  String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id])
+  action    String   // WORKER_VERIFICATION, GRIEVANCE_RESOLVED, VOTE_CAST, REFUND_ISSUED
+  entity    String   // WorkerProfile, Booking, Grievance, Proposal
+  entityId  String
+  ip        String?
+  metadata  String?
+  createdAt DateTime @default(now())
+}

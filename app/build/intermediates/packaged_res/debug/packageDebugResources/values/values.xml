@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GigConnect</string>
+    <string name="subtitle">Fair work. Trusted services. Stronger cooperatives.</string>
+    <string name="tagline">Connect Skills. Create Opportunities.</string>
+    <style name="Theme.GigConnect" parent="android:Theme.Material.Light.NoActionBar"/>
+</resources>
