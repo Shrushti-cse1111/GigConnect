@@ -42,6 +42,15 @@ fun WorkerHomeScreen(
     val newJobs = jobs.filter { it.status == JobStatus.NEW }
 
     Scaffold(
+        bottomBar = {
+            WorkerBottomNav(
+                onHome = {},
+                onJobs = onJobsClick,
+                onEarnings = onEarningsClick,
+                onProfile = onProfileClick,
+                selected = 0
+            )
+        },
         topBar = {
             Surface(
                 color = GigSurface,
@@ -357,6 +366,36 @@ fun WorkerHomeScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun WorkerBottomNav(
+    onHome: () -> Unit,
+    onJobs: () -> Unit,
+    onEarnings: () -> Unit,
+    onProfile: () -> Unit,
+    selected: Int
+) {
+    NavigationBar(containerColor = GigSurface) {
+        listOf(
+            Triple(Icons.Filled.Home, "Home", onHome),
+            Triple(Icons.Filled.Work, "Jobs", onJobs),
+            Triple(Icons.Filled.AccountBalanceWallet, "Earnings", onEarnings),
+            Triple(Icons.Filled.Person, "Profile", onProfile)
+        ).forEachIndexed { index, (icon, label, action) ->
+            NavigationBarItem(
+                selected = selected == index,
+                onClick = action,
+                icon = { Icon(icon, contentDescription = label) },
+                label = { Text(label, fontWeight = if (selected == index) FontWeight.Bold else FontWeight.Normal) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = GigPrimaryBlue,
+                    selectedTextColor = GigPrimaryBlue,
+                    indicatorColor = GigTealContainer
+                )
+            )
         }
     }
 }

@@ -7,11 +7,70 @@ package com.gigconnect.app.data.model
 enum class UserRole { SEEKER, WORKER, ADMIN }
 
 enum class BookingStatus {
-    PENDING, CONFIRMED, WORKER_ASSIGNED, WORKER_ON_WAY,
-    SERVICE_STARTED, COMPLETED, CANCELLED, RATED
+    PENDING, MATCHING, CONFIRMED, WORKER_ASSIGNED, WORKER_ON_WAY,
+    WORKER_ARRIVED, SERVICE_STARTED, SERVICE_COMPLETED,
+    PAYMENT_SETTLED, CANCELLED, DISPUTED, RATED
 }
 
-enum class JobStatus { NEW, ACCEPTED, IN_PROGRESS, COMPLETED, REJECTED }
+enum class EscrowStatus {
+    PENDING, AUTHORIZED_HELD, RELEASED_SETTLED, REFUNDED, FROZEN_DISPUTE
+}
+
+enum class DisputeCategory(val label: String, val icon: String) {
+    WORKER_NO_SHOW("Worker did not arrive", "🚶‍♂️"),
+    INCOMPLETE_WORK("Service incomplete", "⏳"),
+    POOR_QUALITY("Quality below standard", "⚠️"),
+    BILLING_ISSUE("Pricing / Payment issue", "💰"),
+    SAFETY_CONCERN("Safety or conduct concern", "🛡️"),
+    PROPERTY_DAMAGE("Damaged property", "🔨"),
+    OTHER("Other issue", "📝")
+}
+
+enum class DisputeStatus(val label: String) {
+    OPEN("Open — Under Investigation"),
+    UNDER_REVIEW("Reviewing with Panchayat"),
+    ACTION_REQUIRED("Action Required from User"),
+    RESOLVED("Resolved & Closed")
+}
+
+data class DisputeRecord(
+    val id: String,
+    val bookingId: String,
+    val category: DisputeCategory,
+    val description: String,
+    val evidencePhotos: List<String> = emptyList(),
+    val status: DisputeStatus = DisputeStatus.OPEN,
+    val resolutionNotes: String? = null,
+    val createdAt: String = "Just now"
+)
+
+data class ServiceMediaItem(
+    val id: String,
+    val name: String,
+    val isVideo: Boolean = false,
+    val sizeText: String = "1.2 MB"
+)
+
+data class ServiceRequestDraft(
+    val categoryId: String = "plumbing",
+    val categoryName: String = "Plumbing",
+    val description: String = "",
+    val urgency: String = "Normal", // Normal, Urgent (Within 2 hrs), Emergency
+    val mediaItems: List<ServiceMediaItem> = emptyList(),
+    val address: String = "Flat 3B, Demo Tower, Koregaon Park, Pune",
+    val locality: String = "Koregaon Park",
+    val city: String = "Pune",
+    val pincode: String = "411001",
+    val selectedDate: String = "Tomorrow, 17 Sep",
+    val selectedTime: String = "10:00 AM",
+    val isInstant: Boolean = false,
+    val isServiceable: Boolean = true,
+    val basePriceEstimate: Int = 500,
+    val estimatedMinPrice: Int = 450,
+    val estimatedMaxPrice: Int = 600
+)
+
+enum class JobStatus { NEW, ACCEPTED, ON_THE_WAY, ARRIVED, IN_PROGRESS, COMPLETED, REJECTED }
 
 enum class VerificationStatus { VERIFIED, PENDING, NEEDS_REVIEW }
 
@@ -118,7 +177,15 @@ data class Booking(
     val additionalInstructions: String = "",
     val status: BookingStatus,
     val pricing: PricingBreakdown,
-    val createdAt: String
+    val createdAt: String,
+    val urgency: String = "Normal",
+    val paymentMethod: String = "UPI",
+    val escrowStatus: EscrowStatus = EscrowStatus.AUTHORIZED_HELD,
+    val mediaCount: Int = 0,
+    val customerRating: Float? = null,
+    val customerReview: String? = null,
+    val disputeRecord: DisputeRecord? = null,
+    val completionNotes: String? = "Service delivered with cooperative safety standards."
 )
 
 data class PricingBreakdown(
@@ -171,7 +238,35 @@ data class Job(
     val address: String,
     val scheduledDate: String,
     val scheduledTime: String,
-    val urgency: String = "Normal"
+    val urgency: String = "Normal",
+    val matchExplanation: String = "Certified skill • 2.1 km distance • Within active service hours • High cooperative fairness balance",
+    val customerPayment: Int = estimatedEarnings + 70,
+    val platformAllocation: Int = 0,
+    val coopAllocation: Int = 35,
+    val welfareContribution: Int = 20,
+    val equityContribution: Int = 15,
+    val rejectionReason: String? = null,
+    val startedAt: String? = null,
+    val completedAt: String? = null,
+    val completionNotes: String? = null
+)
+
+data class WelfareClaim(
+    val id: String,
+    val type: String,
+    val amount: Int,
+    val date: String,
+    val status: String,
+    val description: String
+)
+
+data class WorkerKycInfo(
+    val idType: String = "Aadhaar Card",
+    val status: String = "VERIFIED",
+    val verifiedAt: String = "15 Jan 2024",
+    val cooperativeSociety: String = "Pune Urban Labour Co-op Society Ltd.",
+    val cooperativeFederation: String = "Maharashtra State Gig Workers Federation",
+    val memberRegId: String = "PUN-COOP-2023-8821"
 )
 
 // ─────────────────────────────────────────────

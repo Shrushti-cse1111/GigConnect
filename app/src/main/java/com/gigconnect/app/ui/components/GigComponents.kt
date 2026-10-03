@@ -63,15 +63,15 @@ fun VerifiedBadge(
 ) {
     if (!isVerified) return
     Surface(
-        modifier = modifier,
+        modifier = modifier.wrapContentWidth(),
         color = GigVerifiedContainer,
         shape = RoundedCornerShape(if (small) 6.dp else 8.dp),
         border = BorderStroke(0.5.dp, GigVerifiedBlue.copy(alpha = 0.2f))
     ) {
         Row(
             modifier = Modifier.padding(
-                horizontal = if (small) 6.dp else 8.dp,
-                vertical = if (small) 2.dp else 4.dp
+                horizontal = if (small) 8.dp else 10.dp,
+                vertical = if (small) 3.dp else 4.dp
             ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -80,13 +80,15 @@ fun VerifiedBadge(
                 Icons.Filled.Verified,
                 contentDescription = "Verified",
                 tint = GigVerifiedBlue,
-                modifier = Modifier.size(if (small) 12.dp else 14.dp)
+                modifier = Modifier.size(if (small) 13.dp else 15.dp)
             )
             Text(
                 text = if (small) "Verified" else "Verified Profile",
                 style = if (small) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
                 color = OnGigVerifiedContainer,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false
             )
         }
     }
@@ -172,6 +174,7 @@ fun WorkerCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
@@ -181,7 +184,8 @@ fun WorkerCard(
                             fontWeight = FontWeight.Bold,
                             color = GigOnSurface,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                         if (worker.isVerified) {
                             VerifiedBadge(small = true)
@@ -711,6 +715,8 @@ fun StatusChip(status: String, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = fg,
+            maxLines = 1,
+            softWrap = false,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         )
     }

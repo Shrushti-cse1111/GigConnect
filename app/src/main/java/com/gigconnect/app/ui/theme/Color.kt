@@ -16,21 +16,38 @@ val OnGigPrimaryContainer = Color(0xFFFFFFFF)
 val GigSecondaryBlue = Color(0xFF66A3BF)
 val GigSoftTeal = Color(0xFFC8DFDB)
 
-// Containers / Light variants for backgrounds
+// Brand Core Aliases (Legacy & Compatibility)
+val GigTeal = GigPrimaryBlue
+val GigTealDark = GigPrimaryBlueDark
+val GigTealLight = GigSoftTeal
 val GigTealContainer = Color(0xFFC8DFDB) // Soft Teal
 val OnGigTealContainer = Color(0xFF172B3A) // Dark Text Primary
 
+// Saffron / Accent Color Tokens
+val GigSaffron = Color(0xFFD68A2E) // Warm Amber / Saffron
+val GigSaffronLight = Color(0xFFFCF3E8)
+val GigSaffronDark = Color(0xFFB5701B)
+val GigSaffronContainer = Color(0xFFFCF3E8)
+val OnGigSaffronContainer = Color(0xFF172B3A)
+
 // Canvas & Surfaces
 val GigBackground = Color(0xFFF2EFE7) // Warm Background
+val GigWarmBg = GigBackground
+val GigCardBg = Color(0xFFFFFFFF)
 val GigSurface = Color(0xFFFFFFFF) // White for cards/elevated
 val GigSurfaceVariant = Color(0xFFC8DFDB) // Soft Teal for variety
 val GigOutline = Color(0xFF66A3BF) // Secondary blue for borders
 val GigOutlineVariant = Color(0xFFC8DFDB)
+val GigBorder = GigOutline
+val GigBorderLight = GigOutlineVariant
+val GigOffWhite = GigBackground
 
 // Accessible High-Contrast Typography (Light Backgrounds)
 val GigOnBackground = Color(0xFF172B3A) // Dark Text Primary
 val GigOnSurface = Color(0xFF172B3A) // Dark Text Primary
 val GigOnSurfaceVariant = Color(0xFF3F5363) // Dark Text Secondary
+val GigCharcoal = Color(0xFF172B3A)
+val GigCharcoalLight = Color(0xFF3F5363)
 val GigSubtleText = Color(0xFF3F5363) // Secondary Text
 val GigPlaceholderText = Color(0xFF526675) // Placeholder
 val GigDisabledText = Color(0xFF8BA3B6)
@@ -79,3 +96,4 @@ val GigOnBackgroundDark = Color(0xFFF2EFE7)
 val GigOnSurfaceDark = Color(0xFFFFFFFF)
 val GigOnSurfaceVariantDark = Color(0xFFC8DFDB)
 val GigSubtleTextDark = Color(0xFF66A3BF)
+val GigDarkCard = Color(0xFF233D52)

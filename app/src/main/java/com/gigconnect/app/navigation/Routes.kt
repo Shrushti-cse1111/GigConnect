@@ -3,11 +3,13 @@ package com.gigconnect.app.navigation
 object Routes {
     // Onboarding
     const val WELCOME = "welcome"
+    const val AUTH = "auth"
     const val LOCATION_SELECTION = "location_selection"
     const val ROLE_SELECTION = "role_selection"
 
     // Seeker
     const val SEEKER_HOME = "seeker_home"
+    const val SERVICE_REQUEST = "service_request"
     const val WORKER_LIST = "worker_list/{serviceId}"
     const val WORKER_PROFILE = "worker_profile/{workerId}"
     const val SMART_MATCH = "smart_match"
@@ -17,6 +19,7 @@ object Routes {
     const val PAYMENT = "payment"
     const val PAYMENT_SUCCESS = "payment_success"
     const val RATING = "rating"
+    const val DISPUTE = "dispute"
     const val BOOKINGS_LIST = "bookings_list"
     const val SEEKER_PROFILE = "seeker_profile"
 

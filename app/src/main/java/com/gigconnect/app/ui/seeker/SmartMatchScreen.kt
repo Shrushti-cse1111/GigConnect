@@ -132,65 +132,149 @@ fun SmartMatchScreen(
                 }
             }
 
-            // Recommended worker card
+            // Recommended worker card & Shortlist
             AnimatedVisibility(visible = recommended != null && !isRunning) {
                 val r = recommended ?: return@AnimatedVisibility
-                Spacer(Modifier.height(16.dp))
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = GigSurface),
-                    elevation = CardDefaults.cardElevation(6.dp),
-                    border = BorderStroke(2.dp, GigTeal)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier.size(60.dp).clip(CircleShape)
-                                    .background(Brush.linearGradient(listOf(GigTeal, GigSaffron))),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    r.worker.name.split(" ").take(2).joinToString("") { it.first().toString() },
-                                    style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(r.worker.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text(r.worker.primarySkill, color = GigTeal)
-                                if (r.worker.isVerified) VerifiedBadge(small = true)
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                ProgressRing(
-                                    progress = r.overallScore / 100f,
-                                    size = 56.dp,
-                                    strokeWidth = 6.dp,
-                                    color = GigSaffron,
-                                    label = "${r.overallScore}%"
-                                )
-                                Text("Match", style = MaterialTheme.typography.labelSmall, color = GigSubtleText)
-                            }
-                        }
+                val allResults = seekerViewModel.smartMatchResults.collectAsState().value
 
-                        Spacer(Modifier.height(14.dp))
-                        TextButton(
-                            onClick = { showWhySheet = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Filled.Info, null, tint = GigTeal, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Why this worker?", color = GigTeal)
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxWidth()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Top FairMatch Recommendation",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = GigOnBackground
+                    )
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = GigSurface),
+                        elevation = CardDefaults.cardElevation(4.dp),
+                        border = BorderStroke(2.dp, GigPrimaryBlue)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(60.dp).clip(CircleShape)
+                                        .background(Brush.linearGradient(listOf(GigSecondaryBlue, GigPrimaryBlue))),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        r.worker.name.split(" ").take(2).joinToString("") { it.first().toString() },
+                                        style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(r.worker.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = GigOnSurface)
+                                    Text(r.worker.primarySkill, color = GigPrimaryBlue, fontWeight = FontWeight.SemiBold)
+                                    Text("⭐ ${r.worker.rating} • ${r.worker.completedJobs} jobs done", style = MaterialTheme.typography.bodySmall, color = GigSubtleText)
+                                    if (r.worker.isVerified) {
+                                        Text("🛡️ Identity & Skill Verified by Co-op", style = MaterialTheme.typography.labelSmall, color = GigSuccess, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    ProgressRing(
+                                        progress = r.overallScore / 100f,
+                                        size = 56.dp,
+                                        strokeWidth = 6.dp,
+                                        color = GigWarning,
+                                        label = "${r.overallScore}%"
+                                    )
+                                    Text("FairMatch", style = MaterialTheme.typography.labelSmall, color = GigSubtleText)
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                "Matched because ${r.worker.name} has ${r.worker.experience} experience, is available at your scheduled time, is ${r.worker.distanceKm} km away, and maintains high cooperative equity standards.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GigSubtleText
+                            )
+
+                            Spacer(Modifier.height(14.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { showWhySheet = true },
+                                    modifier = Modifier.weight(1f).height(48.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, GigPrimaryBlue)
+                                ) {
+                                    Icon(Icons.Filled.Info, null, tint = GigPrimaryBlue, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Why Matched?", color = GigPrimaryBlue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                                Button(
+                                    onClick = {
+                                        seekerViewModel.selectWorker(r.worker)
+                                        onWorkerSelected()
+                                    },
+                                    modifier = Modifier.weight(1f).height(48.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = GigPrimaryBlue),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Select Worker", fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                            }
                         }
-                        Button(
-                            onClick = onWorkerSelected,
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = GigTeal),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("Confirm & Book", fontWeight = FontWeight.Bold)
+                    }
+
+                    // Other Shortlisted Candidates
+                    if (allResults.size > 1) {
+                        Text(
+                            "Other Eligible Shortlisted Workers (${allResults.size - 1})",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = GigOnBackground
+                        )
+
+                        allResults.drop(1).forEach { alt ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = GigSurface),
+                                border = BorderStroke(1.dp, GigOutlineVariant)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(14.dp).fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.size(44.dp).clip(CircleShape).background(GigTealContainer),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(alt.worker.name.take(2).uppercase(), fontWeight = FontWeight.Bold, color = GigPrimaryBlue)
+                                        }
+                                        Column {
+                                            Text(alt.worker.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, color = GigOnSurface)
+                                            Text("⭐ ${alt.worker.rating} • 📍 ${alt.worker.distanceKm} km away", style = MaterialTheme.typography.bodySmall, color = GigSubtleText)
+                                            Text("${alt.overallScore}% Match Score", style = MaterialTheme.typography.labelSmall, color = GigPrimaryBlue, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                    Button(
+                                        onClick = {
+                                            seekerViewModel.selectWorker(alt.worker)
+                                            onWorkerSelected()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = GigPrimaryBlue),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text("Choose", fontSize = 12.sp, color = Color.White)
+                                    }
+                                }
+                            }
                         }
                     }
                 }

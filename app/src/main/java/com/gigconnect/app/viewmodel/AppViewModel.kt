@@ -3,6 +3,7 @@ package com.gigconnect.app.viewmodel
 import androidx.lifecycle.ViewModel
 import com.gigconnect.app.data.demo.DemoDataProvider
 import com.gigconnect.app.data.model.DemoCity
+import com.gigconnect.app.data.model.User
 import com.gigconnect.app.data.model.UserRole
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,10 +11,33 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * App-level ViewModel shared across all screens.
- * Controls role switching, demo location, and connectivity simulation.
+ * Controls role switching, demo location, authentication, language, and connectivity simulation.
  */
 class AppViewModel : ViewModel() {
 
+    // ─── Authentication & User Session ──────────────────────────────────
+    private val _isLoggedIn = MutableStateFlow(true)
+    val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
+
+    private val _currentUser = MutableStateFlow<User?>(DemoDataProvider.seekerUser)
+    val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
+
+    // ─── Language ────────────────────────────────────────────────────────
+    val supportedLanguages = listOf(
+        "English" to "English",
+        "हिंदी" to "Hindi",
+        "मराठी" to "Marathi",
+        "ಕನ್ನಡ" to "Kannada",
+        "தமிழ்" to "Tamil",
+        "తెలుగు" to "Telugu",
+        "বাংলা" to "Bengali",
+        "ગુજરાતી" to "Gujarati"
+    )
+
+    private val _selectedLanguage = MutableStateFlow("English")
+    val selectedLanguage: StateFlow<String> = _selectedLanguage.asStateFlow()
+
+    // ─── Role & Location ─────────────────────────────────────────────────
     private val _currentRole = MutableStateFlow(UserRole.SEEKER)
     val currentRole: StateFlow<UserRole> = _currentRole.asStateFlow()
 
@@ -31,6 +55,26 @@ class AppViewModel : ViewModel() {
 
     private val _showLocationSwitcher = MutableStateFlow(false)
     val showLocationSwitcher: StateFlow<Boolean> = _showLocationSwitcher.asStateFlow()
+
+    fun login(phone: String, name: String, role: UserRole) {
+        val user = when (role) {
+            UserRole.SEEKER -> DemoDataProvider.seekerUser.copy(name = name.ifBlank { "Customer" }, phone = phone)
+            UserRole.WORKER -> DemoDataProvider.workerUser.copy(name = name.ifBlank { "Ramesh Kumar" }, phone = phone)
+            UserRole.ADMIN -> DemoDataProvider.adminUser.copy(name = name.ifBlank { "Admin" }, phone = phone)
+        }
+        _currentUser.value = user
+        _isLoggedIn.value = true
+        _currentRole.value = role
+    }
+
+    fun logout() {
+        _isLoggedIn.value = false
+        _currentUser.value = null
+    }
+
+    fun setLanguage(language: String) {
+        _selectedLanguage.value = language
+    }
 
     fun setRole(role: UserRole) {
         _currentRole.value = role
@@ -59,3 +103,4 @@ class AppViewModel : ViewModel() {
 
     val demoCities = DemoDataProvider.demoCities
 }
+

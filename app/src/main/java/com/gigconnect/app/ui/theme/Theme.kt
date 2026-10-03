@@ -41,9 +41,9 @@ private val GigLightColorScheme = lightColorScheme(
 
 private val GigDarkColorScheme = darkColorScheme(
     primary = GigPrimaryBlueDark,
-    onPrimary = GigOnPrimaryContainer,
+    onPrimary = OnGigPrimaryContainer,
     primaryContainer = GigPrimaryBlue,
-    onPrimaryContainer = GigOnPrimaryContainer,
+    onPrimaryContainer = OnGigPrimaryContainer,
     secondary = GigSecondaryBlue,
     onSecondary = GigOnBackgroundDark,
     secondaryContainer = GigSoftTeal,

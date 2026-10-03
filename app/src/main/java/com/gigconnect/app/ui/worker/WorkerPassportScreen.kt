@@ -25,8 +25,102 @@ fun WorkerPassportScreen(
 ) {
     val worker = workerViewModel.worker
     val equityBalance by workerViewModel.equityBalance.collectAsState()
+    val kycInfo by workerViewModel.kycInfo.collectAsState()
+    val certifiedSkills by workerViewModel.certifiedSkills.collectAsState()
+    val serviceRadius by workerViewModel.serviceRadiusKm.collectAsState()
+    val workingHours by workerViewModel.workingHours.collectAsState()
 
-    Scaffold(topBar = { GigTopBar(title = "Worker Passport", subtitle = "Your digital identity", onBack = onBack) }) { padding ->
+    var showKycDialog by remember { mutableStateOf(false) }
+    var showConfigDialog by remember { mutableStateOf(false) }
+    var tempRadius by remember { mutableFloatStateOf(serviceRadius.toFloat()) }
+    var tempHours by remember { mutableStateOf(workingHours) }
+
+    // ── KYC Upload Dialog ────────────────────────────────────────────────────
+    if (showKycDialog) {
+        var selectedDoc by remember { mutableStateOf("Aadhaar Card (UIDAI)") }
+        AlertDialog(
+            onDismissRequest = { showKycDialog = false },
+            title = { Text("Submit KYC / Identity Document", fontWeight = FontWeight.Bold, color = GigOnSurface) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Select verification document for cooperative accreditation. Private document numbers are encrypted and never shown publicly to customers.", fontSize = 12.sp, color = GigSubtleText)
+                    listOf("Aadhaar Card (UIDAI)", "Labour Co-op Smart Card", "Voter ID Card", "Driving Licence").forEach { doc ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedDoc = doc }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            RadioButton(selected = selectedDoc == doc, onClick = { selectedDoc = doc }, colors = RadioButtonDefaults.colors(selectedColor = GigPrimaryBlue))
+                            Spacer(Modifier.width(8.dp))
+                            Text(doc, fontSize = 13.sp, color = GigOnSurface)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        workerViewModel.submitKycDocument(selectedDoc)
+                        showKycDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(GigPrimaryBlue),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Upload & Verify", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showKycDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // ── Service Area & Availability Dialog ───────────────────────────────────
+    if (showConfigDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfigDialog = false },
+            title = { Text("Service Area & Working Hours", fontWeight = FontWeight.Bold, color = GigOnSurface) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text("Preferred Service Radius: ${tempRadius.toInt()} km", fontWeight = FontWeight.SemiBold, color = GigOnSurface, fontSize = 13.sp)
+                    Slider(
+                        value = tempRadius,
+                        onValueChange = { tempRadius = it },
+                        valueRange = 3f..30f,
+                        steps = 8,
+                        colors = SliderDefaults.colors(thumbColor = GigPrimaryBlue, activeTrackColor = GigPrimaryBlue)
+                    )
+                    OutlinedTextField(
+                        value = tempHours,
+                        onValueChange = { tempHours = it },
+                        label = { Text("Daily Working Hours") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = GigOnSurface, unfocusedTextColor = GigOnSurface)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        workerViewModel.updateServiceRadius(tempRadius.toInt())
+                        workerViewModel.updateWorkingHours(tempHours)
+                        showConfigDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(GigPrimaryBlue),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Save Preferences", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfigDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    Scaffold(topBar = { GigTopBar(title = "Worker Passport", subtitle = "Your cooperative identity", onBack = onBack) }) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -56,7 +150,7 @@ fun WorkerPassportScreen(
                     Text(worker.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
                     Text(worker.primarySkill, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(0.85f))
                     Spacer(Modifier.height(8.dp))
-                    if (worker.isVerified) VerifiedBadge()
+                    VerifiedBadge(isVerified = true)
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Surface(color = Color.White.copy(0.15f), shape = RoundedCornerShape(10.dp)) {
@@ -74,7 +168,7 @@ fun WorkerPassportScreen(
                         Surface(color = Color.White.copy(0.15f), shape = RoundedCornerShape(10.dp)) {
                             Column(modifier = Modifier.padding(12.dp, 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text("₹$equityBalance", fontWeight = FontWeight.ExtraBold, color = Color.White)
-                                Text("Equity", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(0.75f))
+                                Text("Co-op Equity", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(0.75f))
                             }
                         }
                     }
@@ -82,43 +176,60 @@ fun WorkerPassportScreen(
             }
 
             Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                // Trust Badges
+                // KYC & Identity Status Card
                 Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(GigSurface), elevation = CardDefaults.cardElevation(2.dp)) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("🛡️ Trust Badges", fontWeight = FontWeight.Bold, color = GigOnSurface)
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("✓ Identity", "✓ Aadhaar", "✓ Skill", "✓ Cooperative").forEach { badge ->
-                                Surface(color = GigSuccessContainer, shape = RoundedCornerShape(8.dp)) {
-                                    Text(badge, style = MaterialTheme.typography.labelSmall, color = GigSuccess,
-                                        fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                                }
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("🪪 Identity & KYC Status", fontWeight = FontWeight.Bold, color = GigOnSurface)
+                            Surface(color = if (kycInfo.status == "VERIFIED") GigSuccessContainer else GigErrorContainer, shape = RoundedCornerShape(8.dp)) {
+                                Text(
+                                    kycInfo.status,
+                                    color = if (kycInfo.status == "VERIFIED") GigSuccess else GigError,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
                             }
+                        }
+                        PassportRow("Accredited Document", kycInfo.idType)
+                        PassportRow("Verification Note", kycInfo.verifiedAt)
+                        PassportRow("Cooperative Society", kycInfo.cooperativeSociety)
+                        PassportRow("Member Reg ID", kycInfo.memberRegId)
+                        OutlinedButton(
+                            onClick = { showKycDialog = true },
+                            modifier = Modifier.fillMaxWidth().height(42.dp),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Update / Resubmit KYC Document", fontSize = 13.sp)
                         }
                     }
                 }
 
-                // Skills
+                // Service Area & Availability Settings Card
                 Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(GigSurface), elevation = CardDefaults.cardElevation(2.dp)) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("🛠️ Certified Skills", fontWeight = FontWeight.Bold, color = GigOnSurface)
-                        worker.skills.forEach { skill ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("📍 Service Area & Availability", fontWeight = FontWeight.Bold, color = GigOnSurface)
+                            IconButton(onClick = { showConfigDialog = true }) {
+                                Icon(Icons.Filled.Edit, "Edit Service Preferences", tint = GigPrimaryBlue)
+                            }
+                        }
+                        PassportRow("Preferred Service Radius", "$serviceRadius km from Pune HQ")
+                        PassportRow("Active Working Hours", workingHours)
+                        PassportRow("Base Locality", "Koregaon Park & Shivajinagar")
+                    }
+                }
+
+                // Dynamic Certified Skills
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(GigSurface), elevation = CardDefaults.cardElevation(2.dp)) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("🛠️ Cooperative Certified Skills", fontWeight = FontWeight.Bold, color = GigOnSurface)
+                        certifiedSkills.forEach { skill ->
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Icon(Icons.Filled.CheckCircle, null, tint = GigSuccess, modifier = Modifier.size(16.dp))
                                 Text(skill, style = MaterialTheme.typography.bodyMedium, color = GigOnSurface)
                             }
                         }
-                    }
-                }
-
-                // Details
-                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(GigSurface), elevation = CardDefaults.cardElevation(2.dp)) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("📋 Details", fontWeight = FontWeight.Bold, color = GigOnSurface)
-                        PassportRow("Experience", worker.experience)
-                        PassportRow("Service Area", worker.serviceArea)
-                        PassportRow("Languages", worker.languages.joinToString(", "))
-                        PassportRow("Member Since", "January 2023")
-                        PassportRow("Cooperative", "Pune Gig Workers Federation")
                     }
                 }
 

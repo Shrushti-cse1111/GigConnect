@@ -22,90 +22,386 @@ import com.gigconnect.app.ui.theme.*
 import com.gigconnect.app.viewmodel.WorkerViewModel
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Job Detail
+//  Job Detail & Execution Lifecycle
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-fun JobDetailScreen(job: Job, onAccept: () -> Unit, onReject: () -> Unit, onBack: () -> Unit) {
+fun JobDetailScreen(
+    jobId: String,
+    workerViewModel: WorkerViewModel,
+    onBack: () -> Unit
+) {
+    val jobs by workerViewModel.jobs.collectAsState()
+    val job = jobs.find { it.id == jobId } ?: workerViewModel.getJobById(jobId)
+
+    var showDeclineDialog by remember { mutableStateOf(false) }
+    var selectedDeclineReason by remember { mutableStateOf("Too far from current location") }
+    var showCompletionDialog by remember { mutableStateOf(false) }
+    var completionNotes by remember { mutableStateOf("Work completed cleanly according to cooperative safety guidelines.") }
+
+    val declineReasons = listOf(
+        "Too far from current location",
+        "Schedule conflict with existing job",
+        "Requires specialized tools not available",
+        "Estimated earnings too low for scope",
+        "Personal emergency / Off-duty",
+        "Other reason"
+    )
+
+    if (job == null) {
+        Scaffold(topBar = { GigTopBar(title = "Job Details", onBack = onBack) }) { padding ->
+            EmptyState("❌", "Job not found", modifier = Modifier.padding(padding).fillMaxSize())
+        }
+        return
+    }
+
+    // ── Non-Punitive Decline Dialog ──────────────────────────────────────────
+    if (showDeclineDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeclineDialog = false },
+            title = {
+                Column {
+                    Text("Decline Job Request", fontWeight = FontWeight.Bold, color = GigOnSurface)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Declining will NEVER affect your rating or FairMatch priority.", fontSize = 12.sp, color = GigSuccess, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Please select a reason to help the cooperative optimize job routing:", fontSize = 13.sp, color = GigSubtleText)
+                    declineReasons.forEach { reason ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedDeclineReason = reason }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = selectedDeclineReason == reason,
+                                onClick = { selectedDeclineReason = reason },
+                                colors = RadioButtonDefaults.colors(selectedColor = GigPrimaryBlue)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(reason, fontSize = 13.sp, color = GigOnSurface)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        workerViewModel.rejectJobWithReason(job.id, selectedDeclineReason)
+                        showDeclineDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(GigError),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Confirm Decline", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeclineDialog = false }) {
+                    Text("Cancel", color = GigPrimaryBlue)
+                }
+            }
+        )
+    }
+
+    // ── Completion Confirmation Dialog ───────────────────────────────────────
+    if (showCompletionDialog) {
+        AlertDialog(
+            onDismissRequest = { showCompletionDialog = false },
+            title = { Text("Complete & Settle Job", fontWeight = FontWeight.Bold, color = GigOnSurface) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Confirming completion will immediately credit ₹${job.estimatedEarnings} to your earnings and ₹${job.equityContribution} to your cooperative equity wallet.", fontSize = 13.sp, color = GigSubtleText)
+                    OutlinedTextField(
+                        value = completionNotes,
+                        onValueChange = { completionNotes = it },
+                        label = { Text("Completion Notes") },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 3,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = GigOnSurface,
+                            unfocusedTextColor = GigOnSurface,
+                            focusedBorderColor = GigPrimaryBlue
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        workerViewModel.completeJob(job.id, completionNotes)
+                        showCompletionDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(GigSuccess),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Confirm Completion", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCompletionDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
-        topBar = { GigTopBar(title = "Job Details", onBack = onBack) },
+        topBar = { GigTopBar(title = "Job Lifecycle & Settlement", subtitle = "Job #${job.id}", onBack = onBack) },
         bottomBar = {
-            Surface(shadowElevation = 8.dp) {
-                Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(
-                        onClick = { onReject(); onBack() },
-                        modifier = Modifier.weight(1f).height(52.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GigError),
-                        border = BorderStroke(1.dp, GigError)
-                    ) { Text("Decline", fontWeight = FontWeight.SemiBold) }
-                    Button(
-                        onClick = { onAccept(); onBack() },
-                        modifier = Modifier.weight(2f).height(52.dp),
-                        colors = ButtonDefaults.buttonColors(GigPrimaryBlue),
-                        shape = RoundedCornerShape(14.dp)
-                    ) { Text("Accept Job", color = Color.White, fontWeight = FontWeight.Bold) }
+            Surface(shadowElevation = 8.dp, color = GigSurface) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    when (job.status) {
+                        JobStatus.NEW -> {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedButton(
+                                    onClick = { showDeclineDialog = true },
+                                    modifier = Modifier.weight(1f).height(52.dp),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GigError),
+                                    border = BorderStroke(1.dp, GigError)
+                                ) { Text("Decline", fontWeight = FontWeight.SemiBold) }
+                                Button(
+                                    onClick = { workerViewModel.acceptJob(job.id) },
+                                    modifier = Modifier.weight(2f).height(52.dp),
+                                    colors = ButtonDefaults.buttonColors(GigPrimaryBlue),
+                                    shape = RoundedCornerShape(14.dp)
+                                ) { Text("Accept Job", color = Color.White, fontWeight = FontWeight.Bold) }
+                            }
+                        }
+                        JobStatus.ACCEPTED -> {
+                            Button(
+                                onClick = { workerViewModel.startTransit(job.id) },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                colors = ButtonDefaults.buttonColors(GigPrimaryBlue),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Icon(Icons.Filled.Navigation, null, tint = Color.White)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Start Transit (Navigate to Customer)", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        JobStatus.ON_THE_WAY -> {
+                            Button(
+                                onClick = { workerViewModel.markArrived(job.id) },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                colors = ButtonDefaults.buttonColors(GigSecondaryBlue),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Icon(Icons.Filled.Place, null, tint = Color.White)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Mark Arrived at Location", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        JobStatus.ARRIVED -> {
+                            Button(
+                                onClick = { workerViewModel.startJob(job.id) },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                colors = ButtonDefaults.buttonColors(GigSuccess),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Icon(Icons.Filled.PlayArrow, null, tint = Color.White)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Start Service Work", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        JobStatus.IN_PROGRESS -> {
+                            Button(
+                                onClick = { showCompletionDialog = true },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                colors = ButtonDefaults.buttonColors(GigSuccess),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Icon(Icons.Filled.CheckCircle, null, tint = Color.White)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Complete Service & Settle", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        JobStatus.COMPLETED -> {
+                            Surface(
+                                color = GigSuccessContainer,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(Icons.Filled.CheckCircle, null, tint = GigSuccess)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Service Completed & ₹${job.estimatedEarnings} Settled", color = GigSuccess, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                        JobStatus.REJECTED -> {
+                            Surface(
+                                color = GigErrorContainer,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    "Job Declined (${job.rejectionReason ?: "By worker"}) • Zero rating penalty",
+                                    color = GigError,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(14.dp),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().background(GigBackground).padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)) {
-
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(GigSoftTeal)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(GigBackground)
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Live Status Banner
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    when (job.status) {
+                        JobStatus.NEW -> GigSoftTeal
+                        JobStatus.ACCEPTED, JobStatus.ON_THE_WAY, JobStatus.ARRIVED, JobStatus.IN_PROGRESS -> GigTealContainer
+                        JobStatus.COMPLETED -> GigSuccessContainer
+                        JobStatus.REJECTED -> GigErrorContainer
+                    }
+                )
+            ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text(job.serviceDetail, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = GigOnBackground)
-                        Surface(color = GigSecondaryBlue, shape = RoundedCornerShape(8.dp)) {
-                            Text("${job.aiMatchScore}% AI Match", color = Color.White, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
+                        Surface(
+                            color = when (job.status) {
+                                JobStatus.COMPLETED -> GigSuccess
+                                JobStatus.REJECTED -> GigError
+                                else -> GigPrimaryBlue
+                            },
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                job.status.name.replace("_", " "),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
                         }
                     }
-                    Text(job.serviceCategory, color = GigPrimaryBlue)
-                    HorizontalDivider(color = GigPrimaryBlue.copy(0.2f))
+                    Text(job.serviceCategory, color = GigPrimaryBlue, fontWeight = FontWeight.SemiBold)
+                    HorizontalDivider(color = GigPrimaryBlue.copy(0.15f))
                     DetailRow("📍 Distance", "${job.distanceKm} km")
-                    DetailRow("⏱️ Duration", job.estimatedDuration)
-                    DetailRow("💰 Estimated Earnings", "₹${job.estimatedEarnings}")
-                    DetailRow("📅 Date", job.scheduledDate)
-                    DetailRow("🕐 Time", job.scheduledTime)
-                    DetailRow("🏠 Address", job.address)
+                    DetailRow("⏱️ Est. Duration", job.estimatedDuration)
+                    DetailRow("💰 Net Worker Earnings", "₹${job.estimatedEarnings}")
+                    DetailRow("📅 Scheduled Date", job.scheduledDate)
+                    DetailRow("🕐 Scheduled Time", job.scheduledTime)
+                    DetailRow("🏠 Service Location", job.address)
+                    if (job.startedAt != null) DetailRow("⚡ Started At", job.startedAt)
+                    if (job.completedAt != null) DetailRow("✅ Completed At", job.completedAt)
                 }
             }
 
-            // Customer info
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(GigSurface), elevation = CardDefaults.cardElevation(2.dp)) {
+            // Transparent FairMatch Explanation Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(GigSurface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("⚖️", fontSize = 20.sp)
+                        Text("FairMatch™ Transparent Allocation", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = GigOnSurface)
+                    }
+                    Surface(color = GigSoftTeal, shape = RoundedCornerShape(8.dp)) {
+                        Text(
+                            job.matchExplanation,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GigPrimaryBlue,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                    Text("GigConnect guarantees algorithmic neutrality. Workers receive assignments based on verified skills, geographical proximity, and rotation equity.", fontSize = 11.sp, color = GigSubtleText)
+                }
+            }
+
+            // Transparent Cooperative Pricing & Earning Breakdown
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(GigSurface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("💰 Transparent Financial Breakdown", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = GigOnSurface)
+                    HorizontalDivider(color = GigOutlineVariant)
+                    BreakdownRow("Customer Total Payment", "₹${job.customerPayment}", GigOnSurface)
+                    BreakdownRow("Platform Extraction Fee", "₹0 (0%)", GigSuccess)
+                    BreakdownRow("Labour Co-op Admin Share", "₹${job.coopAllocation}", GigSubtleText)
+                    BreakdownRow("Welfare Fund Contribution", "₹${job.welfareContribution}", GigSubtleText)
+                    BreakdownRow("Patronage Equity Credit", "+₹${job.equityContribution}", GigPrimaryBlue)
+                    HorizontalDivider(color = GigOutlineVariant)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Net Worker Take-Home", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = GigOnSurface)
+                        Text("₹${job.estimatedEarnings}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = GigPrimaryBlue)
+                    }
+                }
+            }
+
+            // Customer info & Contact
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(GigSurface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Customer Information", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = GigOnSurface)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(GigSecondaryBlue), contentAlignment = Alignment.Center) {
-                            Text(job.customerName.first().toString(), fontWeight = FontWeight.Bold, color = Color.White)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(GigSecondaryBlue), contentAlignment = Alignment.Center) {
+                                Text(job.customerName.first().toString(), fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                            Column {
+                                Text(job.customerName, fontWeight = FontWeight.SemiBold, color = GigOnSurface)
+                                if (job.customerVerified) StatusChip("VERIFIED SEEKER")
+                            }
                         }
-                        Column {
-                            Text(job.customerName, fontWeight = FontWeight.SemiBold, color = GigOnSurface)
-                            if (job.customerVerified) StatusChip("VERIFIED")
+
+                        if (job.status == JobStatus.ACCEPTED || job.status == JobStatus.ON_THE_WAY || job.status == JobStatus.ARRIVED || job.status == JobStatus.IN_PROGRESS) {
+                            FilledTonalIconButton(onClick = {}) {
+                                Icon(Icons.Filled.Call, "Call Customer", tint = GigPrimaryBlue)
+                            }
                         }
                     }
                 }
             }
 
-            // Safety note
+            // Safety check-in
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(GigSuccessContainer)) {
-                Row(modifier = Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(modifier = Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("🛡️", fontSize = 20.sp)
                     Column {
-                        Text("Safety First", fontWeight = FontWeight.Bold, color = GigSuccess)
-                        Text("Your safety check-in is active. SOS is available from the Safety Center.",
+                        Text("Cooperative Safety Shield Active", fontWeight = FontWeight.Bold, color = GigSuccess)
+                        Text("Your location is shared only during active transit. 24/7 SOS helpline is one tap away.",
                             style = MaterialTheme.typography.bodySmall, color = GigSuccess)
                     }
-                }
-            }
-
-            // No-penalty rejection notice
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(GigSoftTeal)) {
-                Row(modifier = Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("⚖️", fontSize = 20.sp)
-                    Text("Declining this job will NOT affect your rating or opportunities. GigConnect supports fair worker agency.",
-                        style = MaterialTheme.typography.bodySmall, color = GigOnBackground)
                 }
             }
         }
@@ -123,27 +419,89 @@ fun JobDetailScreen(job: Job, onAccept: () -> Unit, onReject: () -> Unit, onBack
 //  Jobs List
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-fun JobsListScreen(workerViewModel: WorkerViewModel, onJobDetail: (Job) -> Unit, onBack: () -> Unit) {
+fun JobsListScreen(
+    workerViewModel: WorkerViewModel,
+    onJobDetail: (Job) -> Unit,
+    onBack: () -> Unit,
+    onHomeClick: () -> Unit = onBack,
+    onEarningsClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {}
+) {
     val jobs by workerViewModel.jobs.collectAsState()
     var tab by remember { mutableStateOf(0) }
-    val tabs = listOf("New", "Active", "Completed")
+    val tabs = listOf("Available", "Active / In Progress", "Completed", "All Jobs")
 
-    Scaffold(topBar = { GigTopBar(title = "My Jobs", onBack = onBack) }) { padding ->
+    Scaffold(
+        topBar = { GigTopBar(title = "Worker Jobs Hub", subtitle = "Available, Pending & Completed", onBack = onBack) },
+        bottomBar = {
+            WorkerBottomNav(
+                onHome = onHomeClick,
+                onJobs = {},
+                onEarnings = onEarningsClick,
+                onProfile = onProfileClick,
+                selected = 1
+            )
+        }
+    ) { padding ->
         Column(modifier = Modifier.fillMaxSize().background(GigBackground).padding(padding)) {
-            TabRow(selectedTabIndex = tab, containerColor = GigSurface, contentColor = GigPrimaryBlue) {
-                tabs.forEachIndexed { i, t -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) }) }
+            ScrollableTabRow(
+                selectedTabIndex = tab,
+                containerColor = GigSurface,
+                contentColor = GigPrimaryBlue,
+                edgePadding = 16.dp
+            ) {
+                tabs.forEachIndexed { i, t ->
+                    val count = when (i) {
+                        0 -> jobs.count { it.status == JobStatus.NEW }
+                        1 -> jobs.count { it.status == JobStatus.ACCEPTED || it.status == JobStatus.ON_THE_WAY || it.status == JobStatus.ARRIVED || it.status == JobStatus.IN_PROGRESS }
+                        2 -> jobs.count { it.status == JobStatus.COMPLETED }
+                        else -> jobs.size
+                    }
+                    Tab(
+                        selected = tab == i,
+                        onClick = { tab = i },
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(t, fontWeight = if (tab == i) FontWeight.Bold else FontWeight.Medium)
+                                Surface(
+                                    color = if (tab == i) GigPrimaryBlue.copy(alpha = 0.12f) else GigSurfaceVariant,
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text(
+                                        "$count",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (tab == i) GigPrimaryBlue else GigSubtleText,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
             }
+
             val filtered = when (tab) {
                 0 -> jobs.filter { it.status == JobStatus.NEW }
-                1 -> jobs.filter { it.status == JobStatus.ACCEPTED || it.status == JobStatus.IN_PROGRESS }
-                else -> jobs.filter { it.status == JobStatus.COMPLETED }
+                1 -> jobs.filter { it.status == JobStatus.ACCEPTED || it.status == JobStatus.ON_THE_WAY || it.status == JobStatus.ARRIVED || it.status == JobStatus.IN_PROGRESS }
+                2 -> jobs.filter { it.status == JobStatus.COMPLETED }
+                else -> jobs
             }
+
             if (filtered.isEmpty()) {
-                EmptyState("📭", "No ${tabs[tab].lowercase()} jobs", modifier = Modifier.fillMaxSize())
+                EmptyState("📭", "No ${tabs[tab].lowercase()} jobs found", modifier = Modifier.fillMaxSize())
             } else {
                 LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    item { DemoDataBadge() }
                     items(filtered) { job ->
-                        JobRequestCard(job = job, onAccept = { workerViewModel.acceptJob(job.id) }, onViewDetails = { onJobDetail(job) })
+                        JobRequestCard(
+                            job = job,
+                            onAccept = { workerViewModel.acceptJob(job.id) },
+                            onViewDetails = { onJobDetail(job) }
+                        )
                     }
                 }
             }
@@ -194,6 +552,16 @@ fun JobRequestCard(
                     ) {
                         Text("Accept", fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold)
                     }
+                } else {
+                    Surface(
+                        color = GigTealContainer,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f).height(42.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(job.status.name.replace("_", " "), fontSize = 12.sp, color = GigPrimaryBlue, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }
@@ -201,65 +569,120 @@ fun JobRequestCard(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Earnings Screen
+//  Earnings & Welfare Screen
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-fun EarningsScreen(workerViewModel: WorkerViewModel, onEquityClick: () -> Unit, onBack: () -> Unit) {
+fun EarningsScreen(
+    workerViewModel: WorkerViewModel,
+    onEquityClick: () -> Unit,
+    onBack: () -> Unit
+) {
     val weekly by workerViewModel.weeklyEarnings.collectAsState()
+    val welfareBalance by workerViewModel.welfareBalance.collectAsState()
+    val welfareClaims by workerViewModel.welfareClaims.collectAsState()
+    var tabIndex by remember { mutableStateOf(0) }
 
-    Scaffold(topBar = { GigTopBar(title = "Earnings", onBack = onBack) }) { padding ->
+    Scaffold(topBar = { GigTopBar(title = "Earnings & Welfare", onBack = onBack) }) { padding ->
         Column(modifier = Modifier.fillMaxSize().background(GigBackground).padding(padding).verticalScroll(rememberScrollState())) {
             Box(modifier = Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(GigPrimaryBlue, GigPrimaryBlue))).padding(24.dp)) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     DemoDataBadge()
                     Spacer(Modifier.height(10.dp))
-                    Text("This Week", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(0.8f))
+                    Text("This Week Total Earnings", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(0.8f))
                     Text("₹$weekly", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = Color.White)
                     Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         EarningStatChip("18 Jobs", "Completed")
                         EarningStatChip("⭐ 4.8", "Avg Rating")
-                        EarningStatChip("₹469", "Per Job Avg")
+                        EarningStatChip("₹$welfareBalance", "Welfare Fund")
                     }
                 }
             }
 
-            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                // Bar chart (simplified canvas)
-                Text("Daily Earnings", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = GigOnBackground)
-                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(GigSurface), elevation = CardDefaults.cardElevation(2.dp)) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-                        val values = listOf(1200, 1800, 900, 2100, 1400, 1650, 750)
-                        val max = values.max().toFloat()
-                        Row(modifier = Modifier.fillMaxWidth().height(120.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
-                            days.forEachIndexed { i, day ->
-                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                                    val h = (values[i] / max * 100).dp
-                                    Box(modifier = Modifier.width(20.dp).height(h).clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)).background(GigPrimaryBlue))
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(day, style = MaterialTheme.typography.labelSmall, color = GigSubtleText)
+            TabRow(
+                selectedTabIndex = tabIndex,
+                containerColor = GigSurface,
+                contentColor = GigPrimaryBlue
+            ) {
+                Tab(selected = tabIndex == 0, onClick = { tabIndex = 0 }, text = { Text("Earnings Ledger", fontWeight = FontWeight.Bold) })
+                Tab(selected = tabIndex == 1, onClick = { tabIndex = 1 }, text = { Text("Welfare & Insurance", fontWeight = FontWeight.Bold) })
+            }
+
+            if (tabIndex == 0) {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    // Daily earnings chart
+                    Text("Daily Earnings (Pune Urban Co-op)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = GigOnBackground)
+                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(GigSurface), elevation = CardDefaults.cardElevation(2.dp)) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                            val values = listOf(1200, 1800, 900, 2100, 1400, 1650, 750)
+                            val max = values.max().toFloat()
+                            Row(modifier = Modifier.fillMaxWidth().height(120.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
+                                days.forEachIndexed { i, day ->
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                                        val h = (values[i] / max * 100).dp
+                                        Box(modifier = Modifier.width(20.dp).height(h).clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)).background(GigPrimaryBlue))
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(day, style = MaterialTheme.typography.labelSmall, color = GigSubtleText)
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                Text("Earnings Breakdown", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = GigOnBackground)
-                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(GigSurface), elevation = CardDefaults.cardElevation(2.dp)) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        BreakdownRow("Service Earnings", "₹7,900", GigOnSurface)
-                        BreakdownRow("Welfare Contribution", "₹250", GigSubtleText)
-                        BreakdownRow("Cooperative Equity Credit", "₹300", GigPrimaryBlue)
-                        BreakdownRow("Platform Contribution", "₹0 / Transparent", GigSuccess)
+                    Text("Transparent Weekly Allocation", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = GigOnBackground)
+                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(GigSurface), elevation = CardDefaults.cardElevation(2.dp)) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            BreakdownRow("Service Earnings Take-Home", "₹7,900", GigOnSurface)
+                            BreakdownRow("Welfare Reserve Fund", "₹250", GigSubtleText)
+                            BreakdownRow("Cooperative Equity Share", "₹300", GigPrimaryBlue)
+                            BreakdownRow("Platform Extraction Fee", "₹0 / Transparent", GigSuccess)
+                        }
+                    }
+
+                    Button(
+                        onClick = onEquityClick,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        colors = ButtonDefaults.buttonColors(GigPrimaryBlue),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("View Cooperative Equity Wallet", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
+            } else {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(GigSoftTeal)) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("🛡️ Worker Welfare & Social Security", fontWeight = FontWeight.Bold, color = GigPrimaryBlue)
+                            Text("Your cooperative automatically accumulates health insurance, emergency assistance, and pension contributions for every job delivered.", fontSize = 12.sp, color = GigOnBackground)
+                            Text("Current Welfare Reserve: ₹$welfareBalance", fontWeight = FontWeight.Bold, color = GigPrimaryBlue)
+                        }
+                    }
 
-                Button(onClick = onEquityClick, modifier = Modifier.fillMaxWidth().height(52.dp),
-                    colors = ButtonDefaults.buttonColors(GigPrimaryBlue), shape = RoundedCornerShape(14.dp)) {
-                    Text("View Equity Wallet", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Welfare Coverage & Records", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = GigOnBackground)
+                    welfareClaims.forEach { claim ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(GigSurface),
+                            elevation = CardDefaults.cardElevation(1.dp)
+                        ) {
+                            Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(GigSuccessContainer), contentAlignment = Alignment.Center) {
+                                    Text("🛡️", fontSize = 18.sp)
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(claim.type, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium, color = GigOnSurface)
+                                    Text(claim.description, style = MaterialTheme.typography.bodySmall, color = GigSubtleText)
+                                    Text(claim.date, style = MaterialTheme.typography.bodySmall, color = GigSubtleText)
+                                }
+                                Text("₹${claim.amount}", fontWeight = FontWeight.Bold, color = GigSuccess)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -291,18 +714,18 @@ fun EquityWalletScreen(workerViewModel: WorkerViewModel, onBack: () -> Unit) {
     val monthGain by workerViewModel.thisMonthEquity.collectAsState()
     val entries by workerViewModel.equityEntries.collectAsState()
 
-    Scaffold(topBar = { GigTopBar(title = "Equity Wallet", onBack = onBack) }) { padding ->
+    Scaffold(topBar = { GigTopBar(title = "Patronage Equity Wallet", subtitle = "Cooperative Ownership", onBack = onBack) }) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().background(GigBackground).padding(padding)) {
             item {
                 Box(modifier = Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(GigPrimaryBlue, GigPrimaryBlue))).padding(24.dp)) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         DemoDataBadge()
                         Spacer(Modifier.height(10.dp))
-                        Text("GigConnect Equity Wallet", style = MaterialTheme.typography.titleMedium, color = Color.White.copy(0.85f))
+                        Text("GigConnect Patronage Equity", style = MaterialTheme.typography.titleMedium, color = Color.White.copy(0.85f))
                         Text("Your work. Your share. Your cooperative.", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(0.65f))
                         Spacer(Modifier.height(16.dp))
                         Text("₹$balance", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                        Text("Current Cooperative Equity", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(0.75f))
+                        Text("Accumulated Cooperative Ownership", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(0.75f))
                         Spacer(Modifier.height(8.dp))
                         Surface(color = GigSuccessContainer, shape = RoundedCornerShape(12.dp)) {
                             Text("+₹$monthGain this month", color = GigSuccess, fontWeight = FontWeight.Bold,
@@ -318,12 +741,12 @@ fun EquityWalletScreen(workerViewModel: WorkerViewModel, onBack: () -> Unit) {
                     colors = CardDefaults.cardColors(GigSoftTeal)) {
                     Row(modifier = Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("🤝", fontSize = 20.sp)
-                        Text("A percentage of eligible transactions is credited toward your cooperative share, according to cooperative rules.",
+                        Text("Unlike private platforms that extract profits, GigConnect credits eligible transaction margins back into your cooperative ownership stake.",
                             style = MaterialTheme.typography.bodySmall, color = GigOnBackground)
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-                Text("Recent Transactions", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                Text("Patronage Dividend & Job Credits", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
                     color = GigOnBackground, modifier = Modifier.padding(horizontal = 20.dp))
                 Spacer(Modifier.height(10.dp))
             }
@@ -357,17 +780,17 @@ fun EquityWalletScreen(workerViewModel: WorkerViewModel, onBack: () -> Unit) {
 fun SkillUpScreen(workerViewModel: WorkerViewModel, onBack: () -> Unit) {
     val recs by workerViewModel.skillRecommendations.collectAsState()
 
-    Scaffold(topBar = { GigTopBar(title = "Skill-Up AI", subtitle = "Based on local demand", onBack = onBack) }) { padding ->
+    Scaffold(topBar = { GigTopBar(title = "Skill-Up AI Coach", subtitle = "Connected to Pune market demand", onBack = onBack) }) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().background(GigBackground).padding(padding),
             contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item {
                 Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(GigSoftTeal)) {
                     Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("🤖", fontSize = 28.sp)
+                        Text("🎓", fontSize = 28.sp)
                         Column {
-                            Text("Skill-Up AI", fontWeight = FontWeight.Bold, color = GigPrimaryBlue)
-                            Text("Improve your skills based on local demand.", style = MaterialTheme.typography.bodySmall, color = GigPrimaryBlue)
+                            Text("Demand-Aware Skill Coach", fontWeight = FontWeight.Bold, color = GigPrimaryBlue)
+                            Text("Recommendations are synchronized with real-time customer request trends across Pune.", style = MaterialTheme.typography.bodySmall, color = GigPrimaryBlue)
                             Spacer(Modifier.height(4.dp))
                             DemoDataBadge()
                         }
@@ -383,16 +806,16 @@ fun SkillUpScreen(workerViewModel: WorkerViewModel, onBack: () -> Unit) {
                             Column(modifier = Modifier.weight(1f)) {
                                 if (rec.isRecommended) {
                                     Surface(color = GigSecondaryBlue, shape = RoundedCornerShape(6.dp)) {
-                                        Text("⭐ AI Recommended", style = MaterialTheme.typography.labelSmall, color = Color.White,
+                                        Text("⭐ AI High-Demand Recommendation", style = MaterialTheme.typography.labelSmall, color = Color.White,
                                             fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                                     }
                                     Spacer(Modifier.height(4.dp))
                                 }
                                 Text(rec.skillName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = GigOnSurface)
-                                Text("${rec.courseDuration} course", style = MaterialTheme.typography.bodySmall, color = GigSubtleText)
+                                Text("${rec.courseDuration} practical module", style = MaterialTheme.typography.bodySmall, color = GigSubtleText)
                             }
                             Surface(color = if (rec.demandTrend > 0) GigSuccessContainer else GigErrorContainer, shape = RoundedCornerShape(8.dp)) {
-                                Text("${if (rec.demandTrend > 0) "↑" else "↓"} ${rec.demandTrend}% demand",
+                                Text("${if (rec.demandTrend > 0) "↑" else "↓"} ${rec.demandTrend}% Pune demand",
                                     style = MaterialTheme.typography.labelSmall, color = if (rec.demandTrend > 0) GigSuccess else GigError,
                                     fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                             }
@@ -400,7 +823,7 @@ fun SkillUpScreen(workerViewModel: WorkerViewModel, onBack: () -> Unit) {
                         // Progress
                         Column {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Progress", style = MaterialTheme.typography.bodySmall, color = GigSubtleText)
+                                Text("Module Progress", style = MaterialTheme.typography.bodySmall, color = GigSubtleText)
                                 Text("${rec.progressPercent}%", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = GigOnSurface)
                             }
                             Spacer(Modifier.height(4.dp))
@@ -413,15 +836,26 @@ fun SkillUpScreen(workerViewModel: WorkerViewModel, onBack: () -> Unit) {
                         }
                         Text(rec.aiReason, style = MaterialTheme.typography.bodySmall, color = GigSubtleText)
                         if (rec.progressPercent < 100) {
-                            Button(onClick = {}, modifier = Modifier.fillMaxWidth().height(42.dp),
+                            Button(
+                                onClick = {
+                                    workerViewModel.updateCourseProgress(rec.skillName, rec.progressPercent + 30)
+                                },
+                                modifier = Modifier.fillMaxWidth().height(42.dp),
                                 colors = ButtonDefaults.buttonColors(if (rec.isRecommended) GigSecondaryBlue else GigPrimaryBlue),
-                                shape = RoundedCornerShape(10.dp)) {
-                                Text(if (rec.progressPercent == 0) "Start Learning" else "Continue Learning", color = Color.White, fontWeight = FontWeight.Bold)
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(if (rec.progressPercent == 0) "Start Learning Module" else "Continue Learning (+30%)", color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         } else {
                             Surface(modifier = Modifier.fillMaxWidth(), color = GigSuccessContainer, shape = RoundedCornerShape(10.dp)) {
-                                Box(modifier = Modifier.padding(10.dp), contentAlignment = Alignment.Center) {
-                                    Text("✅ Certified", fontWeight = FontWeight.Bold, color = GigSuccess)
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(Icons.Filled.CheckCircle, null, tint = GigSuccess)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Cooperative Certified", fontWeight = FontWeight.Bold, color = GigSuccess)
                                 }
                             }
                         }

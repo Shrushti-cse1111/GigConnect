@@ -2,6 +2,8 @@ package com.gigconnect.app.ui.onboarding
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -74,25 +76,6 @@ fun LocationSelectionScreen(onNext: (String, String) -> Unit) {
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-
-            // GPS Button
-            Button(
-                onClick = { onNext(selectedCity.name, selectedState) },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = GigSaffron),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Icon(Icons.Filled.MyLocation, null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(10.dp))
-                Text("Use Current Location", fontWeight = FontWeight.SemiBold)
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                HorizontalDivider(modifier = Modifier.weight(1f), color = GigOutlineVariant)
-                Text(" or select manually ", style = MaterialTheme.typography.bodySmall, color = GigSubtleText)
-                HorizontalDivider(modifier = Modifier.weight(1f), color = GigOutlineVariant)
-            }
-
             // State Dropdown
             Text("State", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = GigOnSurface)
             ExposedDropdownMenuBox(expanded = stateExpanded, onExpandedChange = { stateExpanded = it }) {
@@ -100,16 +83,24 @@ fun LocationSelectionScreen(onNext: (String, String) -> Unit) {
                     value = selectedState,
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Select State") },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = GigOnBackground, fontWeight = FontWeight.SemiBold),
+                    label = { Text("Select State", color = GigSubtleText) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = stateExpanded) },
                     modifier = Modifier.menuAnchor().fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GigTeal)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = GigOnBackground,
+                        unfocusedTextColor = GigOnBackground,
+                        focusedBorderColor = GigPrimaryBlue,
+                        unfocusedBorderColor = GigOutlineVariant,
+                        focusedContainerColor = GigSurface,
+                        unfocusedContainerColor = GigSurface
+                    )
                 )
                 ExposedDropdownMenu(expanded = stateExpanded, onDismissRequest = { stateExpanded = false }) {
                     states.forEach { state ->
                         DropdownMenuItem(
-                            text = { Text(state) },
+                            text = { Text(state, color = GigOnBackground, fontWeight = FontWeight.Medium) },
                             onClick = {
                                 selectedState = state
                                 selectedCity = filteredCities.firstOrNull() ?: cities.first()
@@ -127,19 +118,45 @@ fun LocationSelectionScreen(onNext: (String, String) -> Unit) {
                     value = selectedCity.name,
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Select City") },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = GigOnBackground, fontWeight = FontWeight.SemiBold),
+                    label = { Text("Select City", color = GigSubtleText) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cityExpanded) },
                     modifier = Modifier.menuAnchor().fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GigTeal)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = GigOnBackground,
+                        unfocusedTextColor = GigOnBackground,
+                        focusedBorderColor = GigPrimaryBlue,
+                        unfocusedBorderColor = GigOutlineVariant,
+                        focusedContainerColor = GigSurface,
+                        unfocusedContainerColor = GigSurface
+                    )
                 )
                 ExposedDropdownMenu(expanded = cityExpanded, onDismissRequest = { cityExpanded = false }) {
                     filteredCities.forEach { city ->
                         DropdownMenuItem(
-                            text = { Text("${city.name} — ${city.locality}") },
+                            text = { Text("${city.name} — ${city.locality}", color = GigOnBackground, fontWeight = FontWeight.Medium) },
                             onClick = { selectedCity = city; cityExpanded = false }
                         )
                     }
+                }
+            }
+
+            // Language Selection Section
+            Text("Preferred Language", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = GigOnSurface)
+            var selectedLang by remember { mutableStateOf("English") }
+            val languages = listOf("English", "हिंदी", "मराठी", "ಕನ್ನಡ", "தமிழ்", "తెలుగు", "বাংলা")
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(languages) { lang ->
+                    FilterChip(
+                        selected = selectedLang == lang,
+                        onClick = { selectedLang = lang },
+                        label = { Text(lang, fontWeight = if (selectedLang == lang) FontWeight.Bold else FontWeight.Normal) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = GigTealContainer,
+                            selectedLabelColor = GigPrimaryBlue
+                        )
+                    )
                 }
             }
 
@@ -154,13 +171,13 @@ fun LocationSelectionScreen(onNext: (String, String) -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(Icons.Filled.LocationOn, null, tint = GigTeal, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Filled.LocationOn, null, tint = GigPrimaryBlue, modifier = Modifier.size(24.dp))
                     Column {
-                        Text(selectedCity.name, fontWeight = FontWeight.Bold, color = GigTealDark)
+                        Text(selectedCity.name, fontWeight = FontWeight.Bold, color = GigOnBackground)
                         Text("${selectedCity.locality}, ${selectedCity.state} — ${selectedCity.pincode}",
                             style = MaterialTheme.typography.bodySmall, color = GigSubtleText)
-                        Text(selectedCity.primaryLanguages.joinToString(" • "),
-                            style = MaterialTheme.typography.bodySmall, color = GigTeal)
+                        Text("Language: $selectedLang • Regional support active",
+                            style = MaterialTheme.typography.bodySmall, color = GigPrimaryBlue, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -170,12 +187,12 @@ fun LocationSelectionScreen(onNext: (String, String) -> Unit) {
             Button(
                 onClick = { onNext(selectedCity.name, selectedState) },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = GigTeal),
+                colors = ButtonDefaults.buttonColors(containerColor = GigPrimaryBlue),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Text("Continue", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Continue", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
                 Spacer(Modifier.width(8.dp))
-                Icon(Icons.Filled.ArrowForward, null, modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.ArrowForward, null, modifier = Modifier.size(20.dp), tint = Color.White)
             }
         }
     }

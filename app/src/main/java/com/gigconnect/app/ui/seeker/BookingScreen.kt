@@ -118,19 +118,35 @@ fun BookingScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = selectedDate, onValueChange = { selectedDate = it },
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = GigOnBackground),
                         label = { Text("Date") },
                         leadingIcon = { Icon(Icons.Filled.CalendarToday, null) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GigPrimaryBlue)
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = GigOnBackground,
+                            unfocusedTextColor = GigOnBackground,
+                            focusedBorderColor = GigPrimaryBlue,
+                            unfocusedBorderColor = GigOutlineVariant,
+                            focusedContainerColor = GigSurface,
+                            unfocusedContainerColor = GigSurface
+                        )
                     )
                     OutlinedTextField(
                         value = selectedTime, onValueChange = { selectedTime = it },
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = GigOnBackground),
                         label = { Text("Time") },
                         leadingIcon = { Icon(Icons.Filled.Schedule, null) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GigPrimaryBlue)
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = GigOnBackground,
+                            unfocusedTextColor = GigOnBackground,
+                            focusedBorderColor = GigPrimaryBlue,
+                            unfocusedBorderColor = GigOutlineVariant,
+                            focusedContainerColor = GigSurface,
+                            unfocusedContainerColor = GigSurface
+                        )
                     )
                 }
             }
@@ -139,24 +155,40 @@ fun BookingScreen(
             Text("Service Address", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = GigOnBackground)
             OutlinedTextField(
                 value = address, onValueChange = { address = it },
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = GigOnBackground),
                 label = { Text("Full Address") },
                 leadingIcon = { Icon(Icons.Filled.LocationOn, null) },
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GigPrimaryBlue)
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = GigOnBackground,
+                    unfocusedTextColor = GigOnBackground,
+                    focusedBorderColor = GigPrimaryBlue,
+                    unfocusedBorderColor = GigOutlineVariant,
+                    focusedContainerColor = GigSurface,
+                    unfocusedContainerColor = GigSurface
+                )
             )
 
             // Instructions
             Text("Additional Instructions (Optional)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = GigOnBackground)
             OutlinedTextField(
                 value = instructions, onValueChange = { instructions = it },
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = GigOnBackground),
                 label = { Text("Any specific details...") },
-                leadingIcon = { Icon(Icons.Filled.Notes, null) },
+                leadingIcon = { Icon(Icons.Filled.Description, null) },
                 minLines = 3,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GigPrimaryBlue)
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = GigOnBackground,
+                    unfocusedTextColor = GigOnBackground,
+                    focusedBorderColor = GigPrimaryBlue,
+                    unfocusedBorderColor = GigOutlineVariant,
+                    focusedContainerColor = GigSurface,
+                    unfocusedContainerColor = GigSurface
+                )
             )
 
             // Pricing

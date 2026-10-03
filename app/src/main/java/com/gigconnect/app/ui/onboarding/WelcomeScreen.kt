@@ -138,19 +138,6 @@ fun WelcomeScreen(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(horizontal = 12.dp)
                     )
-
-                    Spacer(Modifier.height(32.dp))
-
-                    // Feature highlights row
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(horizontal = 4.dp)
-                    ) {
-                        FeaturePill("🛡️ Verified")
-                        FeaturePill("🤖 AI Matched")
-                        FeaturePill("⚖️ Fair Pay")
-                        FeaturePill("🏛️ Co-op Equity")
-                    }
                 }
             }
 
@@ -220,21 +207,5 @@ fun WelcomeScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun FeaturePill(text: String) {
-    Surface(
-        color = GigSurface,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, GigOutlineVariant)
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = GigOnSurface,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-        )
     }
 }

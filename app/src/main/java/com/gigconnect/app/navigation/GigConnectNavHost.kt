@@ -69,7 +69,22 @@ fun GigConnectNavHost() {
         composable(Routes.WELCOME) {
             WelcomeScreen(
                 onGetStarted = { navController.navigate(Routes.LOCATION_SELECTION) },
-                onLogin = { navController.navigate(Routes.LOCATION_SELECTION) }
+                onLogin = { navController.navigate(Routes.AUTH) }
+            )
+        }
+
+        composable(Routes.AUTH) {
+            AuthScreen(
+                appViewModel = appViewModel,
+                onAuthSuccess = { role ->
+                    appViewModel.setRole(role)
+                    when (role) {
+                        UserRole.SEEKER -> navController.navigate(Routes.SEEKER_HOME) { popUpTo(Routes.WELCOME) { inclusive = true } }
+                        UserRole.WORKER -> navController.navigate(Routes.WORKER_HOME) { popUpTo(Routes.WELCOME) { inclusive = true } }
+                        UserRole.ADMIN  -> navController.navigate(Routes.ADMIN_DASHBOARD) { popUpTo(Routes.WELCOME) { inclusive = true } }
+                    }
+                },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -97,7 +112,8 @@ fun GigConnectNavHost() {
                 cityName = currentCity,
                 seekerViewModel = seekerViewModel,
                 onServiceSelected = { service ->
-                    navController.navigate(Routes.workerList(service.id))
+                    seekerViewModel.initServiceRequest(service, currentCity)
+                    navController.navigate(Routes.SERVICE_REQUEST)
                 },
                 onWorkerTapped = { worker ->
                     seekerViewModel.selectWorkerById(worker.id)
@@ -109,6 +125,17 @@ fun GigConnectNavHost() {
                 onRoleSwitchClick = { showRoleSwitcher = true },
                 onLocationClick = { showLocationSwitcher = true },
                 isOffline = isOffline
+            )
+        }
+
+        composable(Routes.SERVICE_REQUEST) {
+            ServiceRequestScreen(
+                seekerViewModel = seekerViewModel,
+                cityName = currentCity,
+                onProceedToMatch = {
+                    navController.navigate(Routes.SMART_MATCH)
+                },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -172,6 +199,7 @@ fun GigConnectNavHost() {
             LiveTrackingScreen(
                 seekerViewModel = seekerViewModel,
                 onPayment = { navController.navigate(Routes.PAYMENT) },
+                onDispute = { navController.navigate(Routes.DISPUTE) },
                 onBack = { navController.popBackStack() }
             )
         }
@@ -200,7 +228,25 @@ fun GigConnectNavHost() {
         }
 
         composable(Routes.BOOKINGS_LIST) {
-            BookingsListScreen(seekerViewModel = seekerViewModel, onBack = { navController.popBackStack() })
+            BookingsListScreen(
+                seekerViewModel = seekerViewModel,
+                onTrackBooking = { booking ->
+                    seekerViewModel.loadBookingForTracking(booking)
+                    navController.navigate(Routes.LIVE_TRACKING)
+                },
+                onDisputeBooking = { booking ->
+                    seekerViewModel.loadBookingForTracking(booking)
+                    navController.navigate(Routes.DISPUTE)
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.DISPUTE) {
+            DisputeScreen(
+                seekerViewModel = seekerViewModel,
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(Routes.SEEKER_PROFILE) {
@@ -232,6 +278,9 @@ fun GigConnectNavHost() {
                     workerViewModel.selectJob(job)
                     navController.navigate(Routes.jobDetail(job.id))
                 },
+                onHomeClick = { navController.navigate(Routes.WORKER_HOME) { popUpTo(Routes.WORKER_HOME) { inclusive = true } } },
+                onEarningsClick = { navController.navigate(Routes.EARNINGS) },
+                onProfileClick = { navController.navigate(Routes.WORKER_PASSPORT) },
                 onBack = { navController.popBackStack() }
             )
         }
@@ -241,15 +290,11 @@ fun GigConnectNavHost() {
             arguments = listOf(navArgument("jobId") { type = NavType.StringType })
         ) { backStack ->
             val jobId = backStack.arguments?.getString("jobId") ?: ""
-            val job = workerViewModel.getJobById(jobId)
-            if (job != null) {
-                JobDetailScreen(
-                    job = job,
-                    onAccept = { workerViewModel.acceptJob(jobId) },
-                    onReject = { workerViewModel.rejectJob(jobId) },
-                    onBack = { navController.popBackStack() }
-                )
-            }
+            JobDetailScreen(
+                jobId = jobId,
+                workerViewModel = workerViewModel,
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(Routes.EARNINGS) {

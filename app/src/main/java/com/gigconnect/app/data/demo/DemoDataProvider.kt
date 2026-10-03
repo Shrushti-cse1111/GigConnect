@@ -163,7 +163,7 @@ object DemoDataProvider {
     val demoBookings = listOf(
         Booking(id = "BK1024", customerId = "u1", customerName = "Demo User", workerId = "w1", workerName = "Ramesh Kumar",
             serviceCategory = "Plumbing", serviceDetail = "Bathroom Pipe Repair", date = "16 Sep 2026",
-            time = "10:00 AM", address = "Flat 3B, Koregaon Park, Pune", status = BookingStatus.COMPLETED,
+            time = "10:00 AM", address = "Flat 3B, Koregaon Park, Pune", status = BookingStatus.SERVICE_COMPLETED,
             pricing = PricingBreakdown(500, 50, 430, 20), createdAt = "14 Sep 2026"),
         Booking(id = "BK1025", customerId = "u1", customerName = "Demo User", workerId = "w3", workerName = "Anita Devi",
             serviceCategory = "Cleaning", serviceDetail = "Deep Home Cleaning", date = "17 Sep 2026",
